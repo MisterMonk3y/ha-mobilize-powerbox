@@ -20,7 +20,9 @@ from homeassistant.helpers.update_coordinator import (
 
 _LOGGER = logging.getLogger(__name__)
 
-SCAN_INTERVAL = timedelta(seconds=10)  # Mise à jour rapide pour les mesures temps réel
+# Intervalles de mise à jour selon les recommandations HA
+SCAN_INTERVAL_REALTIME = timedelta(seconds=10)  # Mesures temps réel (courant, tension, puissance)
+SCAN_INTERVAL_CONFIG = timedelta(minutes=5)  # Configuration (changements rares)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -28,46 +30,41 @@ async def async_setup_entry(hass, entry, async_add_entities):
     
     # Récupérer les données depuis hass.data
     domain_data = hass.data["mobilize_powerbox"][entry.entry_id]
-    coordinator = domain_data["coordinator"]
+    coordinator_realtime = domain_data["coordinator_realtime"]
+    coordinator_config = domain_data["coordinator_config"]
     device_info = domain_data["device_info"]
     
     sensors = [
-        # Mesures en temps réel (compteur virtuel - charge en cours)
-        PowerBoxCurrentSensor(coordinator, device_info),
-        PowerBoxVoltageSensor(coordinator, device_info),
-        PowerBoxPowerSensor(coordinator, device_info),
-        PowerBoxSessionEnergySensor(coordinator, device_info),
+        # Mesures en temps réel (10s) - compteur virtuel - charge en cours
+        PowerBoxCurrentSensor(coordinator_realtime, device_info),
+        PowerBoxVoltageSensor(coordinator_realtime, device_info),
+        PowerBoxPowerSensor(coordinator_realtime, device_info),
+        PowerBoxSessionEnergySensor(coordinator_realtime, device_info),
         
-        # Énergie totale de la borne
-        PowerBoxTotalEnergySensor(coordinator, device_info),
+        # Énergie totale de la borne (10s)
+        PowerBoxTotalEnergySensor(coordinator_realtime, device_info),
         
-        # Téléinformation Client (TiC)
-        PowerBoxTicCurrentSensor(coordinator, device_info),
-        PowerBoxTicPowerSensor(coordinator, device_info),
+        # Téléinformation Client (TiC) (10s)
+        PowerBoxTicCurrentSensor(coordinator_realtime, device_info),
+        PowerBoxTicPowerSensor(coordinator_realtime, device_info),
         
-        # Configuration
-        PowerBoxMaxCurrentSensor(coordinator, device_info),
-        PowerBoxHouseholdPowerLimitSensor(coordinator, device_info),
-        PowerBoxDynamicLoadModeSensor(coordinator, device_info),
-        PowerBoxChargerModeSensor(coordinator, device_info),
-        PowerBoxCountrySensor(coordinator, device_info),
-        PowerBoxInstallationTypeSensor(coordinator, device_info),
+        # Configuration (5 minutes) - changements rares
+        PowerBoxMaxCurrentSensor(coordinator_config, device_info),
+        PowerBoxHouseholdPowerLimitSensor(coordinator_config, device_info),
+        PowerBoxDynamicLoadModeSensor(coordinator_config, device_info),
+        PowerBoxChargerModeSensor(coordinator_config, device_info),
+        PowerBoxCountrySensor(coordinator_config, device_info),
+        PowerBoxInstallationTypeSensor(coordinator_config, device_info),
     ]
     
     async_add_entities(sensors, True)
 
 
-class PowerBoxDataCoordinator(DataUpdateCoordinator):
-    """Coordinateur pour récupérer les données de la PowerBox."""
+class PowerBoxAPIClient:
+    """Client API partagé pour éviter les duplications de tokens."""
 
-    def __init__(self, hass, base_url, username, password, verify_ssl):
-        """Initialisation du coordinateur."""
-        super().__init__(
-            hass,
-            _LOGGER,
-            name="Mobilize PowerBox",
-            update_interval=SCAN_INTERVAL,
-        )
+    def __init__(self, base_url, username, password, verify_ssl):
+        """Initialisation du client API."""
         self.base_url = base_url
         self.username = username
         self.password = password
@@ -99,7 +96,7 @@ class PowerBoxDataCoordinator(DataUpdateCoordinator):
             _LOGGER.error(f"Erreur lors de l'authentification: {err}")
             raise UpdateFailed(f"Erreur d'authentification: {err}") from err
 
-    def _fetch_data(self, endpoint):
+    def fetch_data(self, endpoint):
         """Récupère les données depuis un endpoint."""
         if not self._token:
             self._token = self._get_auth_token()
@@ -131,62 +128,83 @@ class PowerBoxDataCoordinator(DataUpdateCoordinator):
             _LOGGER.error(f"Erreur lors de la récupération de {endpoint}: {err}")
             raise UpdateFailed(f"Erreur de connexion: {err}") from err
 
+
+class PowerBoxRealtimeCoordinator(DataUpdateCoordinator):
+    """Coordinateur pour les mesures temps réel (10s)."""
+
+    def __init__(self, hass, api_client):
+        """Initialisation du coordinateur temps réel."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="Mobilize PowerBox Realtime",
+            update_interval=SCAN_INTERVAL_REALTIME,
+        )
+        self.api_client = api_client
+
     async def _async_update_data(self):
-        """Récupère les données de la borne."""
+        """Récupère les mesures temps réel."""
         try:
-            data = {}
+            meters = await self.hass.async_add_executor_job(
+                self.api_client.fetch_data, "meters"
+            )
             
-            # Récupération des mesures en temps réel
-            try:
-                meters = await self.hass.async_add_executor_job(
-                    self._fetch_data, "meters"
-                )
-                data["meters"] = meters
-                
-                # Parser les compteurs pour un accès plus facile
-                data["meters_parsed"] = {}
-                for meter in meters:
-                    model = meter.get("Model", "")
-                    values_dict = {}
-                    for value in meter.get("Values", []):
-                        values_dict[value["Name"]] = {
-                            "value": value["Value"],
-                            "timestamp": value.get("Timestamp", 0)
-                        }
-                    data["meters_parsed"][model] = {
-                        "connected": meter.get("Connected") == "true",
-                        "id": meter.get("ID"),
-                        "manufacturer": meter.get("Manufacturer"),
-                        "serial": meter.get("Serial"),
-                        "values": values_dict
+            # Parser les compteurs pour un accès plus facile
+            meters_parsed = {}
+            for meter in meters:
+                model = meter.get("Model", "")
+                values_dict = {}
+                for value in meter.get("Values", []):
+                    values_dict[value["Name"]] = {
+                        "value": value["Value"],
+                        "timestamp": value.get("Timestamp", 0)
                     }
-                
-            except Exception as err:
-                _LOGGER.warning(f"Impossible de récupérer les mesures: {err}")
+                meters_parsed[model] = {
+                    "connected": meter.get("Connected") == "true",
+                    "id": meter.get("ID"),
+                    "manufacturer": meter.get("Manufacturer"),
+                    "serial": meter.get("Serial"),
+                    "values": values_dict
+                }
             
-            # Récupération de la configuration
-            try:
-                configs_list = await self.hass.async_add_executor_job(
-                    self._fetch_data, "configs"
-                )
-                
-                # Transformer la liste en dictionnaire
-                configs = {}
-                for config in configs_list:
-                    module = config.get("module_name", "")
-                    name = config.get("config_name", "")
-                    key = f"{module}.{name}"
-                    configs[key] = config
-                
-                data["configs"] = configs
-            except Exception as err:
-                _LOGGER.warning(f"Impossible de récupérer la configuration: {err}")
-            
-            _LOGGER.debug(f"Données récupérées avec succès")
-            return data
+            return {"meters_parsed": meters_parsed}
             
         except Exception as err:
-            raise UpdateFailed(f"Erreur lors de la mise à jour des données: {err}")
+            raise UpdateFailed(f"Erreur lors de la mise à jour des mesures: {err}")
+
+
+class PowerBoxConfigCoordinator(DataUpdateCoordinator):
+    """Coordinateur pour la configuration (5 minutes)."""
+
+    def __init__(self, hass, api_client):
+        """Initialisation du coordinateur de configuration."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="Mobilize PowerBox Config",
+            update_interval=SCAN_INTERVAL_CONFIG,
+        )
+        self.api_client = api_client
+
+    async def _async_update_data(self):
+        """Récupère la configuration."""
+        try:
+            configs_list = await self.hass.async_add_executor_job(
+                self.api_client.fetch_data, "configs"
+            )
+            
+            # Transformer la liste en dictionnaire
+            configs = {}
+            for config in configs_list:
+                module = config.get("module_name", "")
+                name = config.get("config_name", "")
+                key = f"{module}.{name}"
+                configs[key] = config
+            
+            return {"configs": configs}
+            
+        except Exception as err:
+            raise UpdateFailed(f"Erreur lors de la mise à jour de la configuration: {err}")
 
 
 class PowerBoxSensorBase(CoordinatorEntity, SensorEntity):

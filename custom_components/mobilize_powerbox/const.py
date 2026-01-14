@@ -15,7 +15,8 @@ CONF_VERIFY_SSL = "verify_ssl"
 DEFAULT_NAME = "PowerBox"
 DEFAULT_USERNAME = "installer"
 DEFAULT_VERIFY_SSL = False
-DEFAULT_SCAN_INTERVAL = 10  # secondes
+DEFAULT_SCAN_INTERVAL_REALTIME = 10  # secondes - mesures temps réel
+DEFAULT_SCAN_INTERVAL_CONFIG = 300  # secondes (5 min) - configuration
 
 # Endpoints API
 ENDPOINT_AUTH = "auth"

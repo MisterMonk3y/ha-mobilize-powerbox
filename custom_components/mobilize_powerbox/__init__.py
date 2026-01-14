@@ -18,7 +18,7 @@ from .const import (
     INTEGRATION_MANUFACTURER,
     INTEGRATION_MODEL,
 )
-from .sensor import PowerBoxDataCoordinator
+from .sensor import PowerBoxAPIClient, PowerBoxRealtimeCoordinator, PowerBoxConfigCoordinator
 
 # Désactiver les avertissements SSL
 requests.packages.urllib3.disable_warnings(
@@ -44,13 +44,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     _LOGGER.info("Configuration de Mobilize PowerBox: %s", host)
     
-    # Créer le coordinateur de données
-    coordinator = PowerBoxDataCoordinator(
-        hass, base_url, username, password, verify_ssl
-    )
+    # Créer le client API partagé
+    api_client = PowerBoxAPIClient(base_url, username, password, verify_ssl)
     
-    # Faire une première mise à jour
-    await coordinator.async_config_entry_first_refresh()
+    # Créer les coordinateurs (temps réel + configuration)
+    coordinator_realtime = PowerBoxRealtimeCoordinator(hass, api_client)
+    coordinator_config = PowerBoxConfigCoordinator(hass, api_client)
+    
+    # Faire les premières mises à jour
+    await coordinator_realtime.async_config_entry_first_refresh()
+    await coordinator_config.async_config_entry_first_refresh()
     
     # Informations sur l'appareil
     device_info = DeviceInfo(
@@ -65,7 +68,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Stocker les données
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
-        DATA_COORDINATOR: coordinator,
+        DATA_COORDINATOR: coordinator_realtime,  # Pour compatibilité
+        "coordinator_realtime": coordinator_realtime,
+        "coordinator_config": coordinator_config,
         DATA_DEVICE_INFO: device_info,
     }
     
