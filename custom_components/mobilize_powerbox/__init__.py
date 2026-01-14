@@ -18,7 +18,7 @@ from .const import (
     INTEGRATION_MANUFACTURER,
     INTEGRATION_MODEL,
 )
-from .sensor import PowerBoxAPIClient, PowerBoxRealtimeCoordinator, PowerBoxConfigCoordinator
+from .coordinator import PowerBoxAPIClient, PowerBoxRealtimeCoordinator, PowerBoxConfigCoordinator
 
 # Désactiver les avertissements SSL
 requests.packages.urllib3.disable_warnings(

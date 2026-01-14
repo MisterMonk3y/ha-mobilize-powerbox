@@ -35,7 +35,6 @@
 - ✅ **Diagnostics intégrés** pour le debug
 - ✅ **Options de reconfiguration** sans réinstaller
 - ✅ **API locale uniquement** (aucune connexion cloud)
-- ✅ **Intervalles optimisés** (10s temps réel / 5 min config)
 
 ### Mesures en Temps Réel (toutes les 10s)
 - 🔌 Courant de charge (A)
@@ -48,7 +47,7 @@
 - 📡 Courant phase A
 - ⚡ Puissance apparente
 
-### Configuration (mise à jour toutes les 5 min)
+### Configuration
 - ⚙️ Courant maximum autorisé
 - 🏠 Limite puissance foyer
 - 🔄 Mode gestion dynamique (Off/TiC/SiteConsumption)
@@ -285,25 +284,6 @@ Ces diagnostics sont utiles pour signaler un problème sur GitHub.
 > **✅ Aucune donnée envoyée** à Mobilize ou des tiers  
 > **✅ Contrôle total** de vos données
 
-> [!TIP]
-> ## ⏱️ Intervalles de Mise à Jour Optimisés
->
-> L'intégration utilise **deux coordinateurs distincts** pour optimiser les performances :
->
-> **Mesures Temps Réel** (toutes les **10 secondes**) ⚡
-> - Courant, tension, puissance
-> - Énergie de session et totale
-> - Données TiC/Linky
-> - 👉 Parfait pour suivre la charge en direct
->
-> **Configuration** (toutes les **5 minutes**) 💤
-> - Courant maximum, limite puissance
-> - Mode de charge et gestion dynamique
-> - Pays et type d'installation
-> - 👉 Ces valeurs changent rarement
->
-> **Résultat :** Excellente réactivité + charge minimale sur la borne ! 🎯
-
 ---
 
 ## 🤝 Contribution
@@ -322,8 +302,7 @@ Les contributions sont les bienvenues ! Consultez [CONTRIBUTING.md](CONTRIBUTING
 
 Voir [CHANGELOG.md](CHANGELOG.md) pour l'historique complet des versions.
 
-### v1.0.0 (2026-01-15)
-- 🎉 Première release publique
+### v1.1.0 (2026-01-14) - 🎉 Première Release Officielle
 - ✅ Configuration via interface graphique (Config Flow)
 - ✅ Support multilingue (FR/EN)
 - ✅ Prêt pour HACS
