@@ -106,7 +106,7 @@ Pour ajouter une langue :
 
 ## ⚖️ Licence
 
-En contribuant, vous acceptez que vos contributions soient sous licence MIT.
+En contribuant, vous acceptez que vos contributions soient sous licence Apache 2.0.
 
 ## 🙏 Merci !
 
