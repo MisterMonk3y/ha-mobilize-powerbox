@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurer Mobilize PowerBox",
+        "description": "Entrez les informations de connexion à votre borne de recharge.",
+        "data": {
+          "host": "Adresse IP",
+          "username": "Nom d'utilisateur",
+          "password": "Mot de passe",
+          "name": "Nom de l'appareil",
+          "verify_ssl": "Vérifier le certificat SSL"
+        },
+        "data_description": {
+          "host": "Adresse IP locale de votre PowerBox sur votre réseau (ex: 192.168.1.50). Trouvez-la dans les paramètres de votre box internet.",
+          "username": "Nom d'utilisateur de l'interface (défaut: installer)",
+          "password": "Mot de passe de l'interface web",
+          "name": "Nom personnalisé pour votre borne dans Home Assistant",
+          "verify_ssl": "Laissez décoché pour les certificats auto-signés"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter à la PowerBox. Vérifiez l'adresse IP.",
+      "invalid_auth": "Identifiants invalides. Vérifiez le nom d'utilisateur et le mot de passe.",
+      "timeout": "Délai d'attente dépassé. La PowerBox ne répond pas.",
+      "unknown": "Erreur inattendue lors de la connexion."
+    },
+    "abort": {
+      "already_configured": "Cette PowerBox est déjà configurée"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options Mobilize PowerBox",
+        "data": {
+          "name": "Nom de l'appareil",
+          "verify_ssl": "Vérifier le certificat SSL"
+        }
+      }
+    }
+  }
+}

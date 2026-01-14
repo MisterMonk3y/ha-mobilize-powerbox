@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Mobilize PowerBox",
+        "description": "Enter your charging station connection details.",
+        "data": {
+          "host": "IP Address",
+          "username": "Username",
+          "password": "Password",
+          "name": "Device Name",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "host": "Local IP address of your PowerBox on your network (e.g., 192.168.1.50). Find it in your router settings.",
+          "username": "Web interface username (default: installer)",
+          "password": "Web interface password",
+          "name": "Custom name for your charging station in Home Assistant",
+          "verify_ssl": "Leave unchecked for self-signed certificates"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to PowerBox. Check the IP address.",
+      "invalid_auth": "Invalid credentials. Check your username and password.",
+      "timeout": "Connection timeout. PowerBox is not responding.",
+      "unknown": "Unexpected error during connection."
+    },
+    "abort": {
+      "already_configured": "This PowerBox is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Mobilize PowerBox Options",
+        "data": {
+          "name": "Device Name",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      }
+    }
+  }
+}

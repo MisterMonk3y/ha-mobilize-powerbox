@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+
+# Variables d'environnement
+.env
+.env.local
+env.example
+
+# Scripts de test locaux
+test_*.py
+*_local.py
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Virtual environment
+venv/
+.venv/
+
+# Documentation temporaire
+NOTES_*.md
+PUBLICATION_*.md
+RESUME_*.md
+STRUCTURE.md
+
+# Fichiers temporaires
+*.tmp
+*.bak
+*.log
