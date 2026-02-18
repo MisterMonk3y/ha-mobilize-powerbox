@@ -36,7 +36,7 @@
 - ✅ **Options de reconfiguration** sans réinstaller
 - ✅ **API locale uniquement** (aucune connexion cloud)
 
-### Mesures en Temps Réel (toutes les 10s)
+### Mesures en Temps Réel (toutes les 30s)
 - 🔌 Courant de charge (A)
 - ⚡ Tension (V)
 - 💡 Puissance instantanée (W)
@@ -239,11 +239,21 @@ C'est normal si **aucune voiture n'est en charge**. Les valeurs s'actualiseront 
 - Vérifiez l'adresse IP de la borne
 - Testez : `ping 192.168.0.40`
 - Assurez-vous que "Vérifier SSL" est décoché
+- Utilisez le script de diagnostic : `python test_connectivity.py`
 
 ### Erreur "Invalid credentials"
 
 - Vérifiez le mot de passe (sensible à la casse)
 - Nom d'utilisateur par défaut : `installer`
+
+### Problèmes de connexion / Déconnexions
+
+L'intégration gère automatiquement les erreurs temporaires :
+- Retry automatique (3 tentatives)
+- Conservation des dernières valeurs
+- Adaptation de la fréquence en cas de problème
+
+Si la PowerBox est instable, l'intervalle de mise à jour augmente automatiquement pour réduire la charge.
 
 ---
 
@@ -301,6 +311,23 @@ Les contributions sont les bienvenues ! Consultez [CONTRIBUTING.md](CONTRIBUTING
 ## 📝 Changelog
 
 Voir [CHANGELOG.md](CHANGELOG.md) pour l'historique complet des versions.
+
+### v1.3.0 (2026-02-18) - 🔧 Stabilité et Résilience
+- ✅ Intervalles optimisés (30s au lieu de 10s) - Réduction de 66% de la charge
+- ✅ Retry automatique avec backoff progressif (3 tentatives)
+- ✅ Conservation des dernières valeurs en cas d'erreur temporaire
+- ✅ Adaptation dynamique : mode dégradé automatique si problèmes répétés
+- ✅ Timeout augmenté à 20 secondes (plus tolérant)
+- ✅ Gestion améliorée des ConnectionResetError
+- ✅ Logs plus détaillés pour diagnostic
+- ✅ Fermeture propre des sessions HTTP
+
+### v1.2.0 (2026-01-14) - 🏗️ Refactoring Architecture
+- ✅ Architecture refactorisée selon les standards Home Assistant
+- ✅ Nouveau fichier `coordinator.py` avec coordinateurs séparés
+- ✅ Pattern `CoordinatorEntity` standard
+- ✅ Logs professionnels structurés
+- ✅ Code plus maintenable et modulaire
 
 ### v1.1.0 (2026-01-14) - 🎉 Première Release Officielle
 - ✅ Configuration via interface graphique (Config Flow)
