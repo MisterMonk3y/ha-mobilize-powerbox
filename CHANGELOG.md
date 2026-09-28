@@ -7,6 +7,38 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.4.0] - 2026-09-28
+
+### ✨ Nouveaux Capteurs
+
+#### Mesures temps réel (Power Board Meter)
+- Puissance réactive (var)
+- Puissance apparente réseau (VA)
+- Facteur de puissance
+- Énergie injectée totale (kWh) — V2G / surplus
+
+#### Configuration
+- Contrat V2G
+- Profil réseau (GridCodes)
+- Arrêt d'urgence
+- Topologie réseau (mono/tri)
+- Puissance de conception
+- Courant max hors ligne
+- Déséquilibre de phases
+
+### 🔧 Corrigé
+- Diagnostics HA cassés après le refactor des coordinateurs (HTTP 500)
+
+### 📖 Documentation
+- README mis à jour (24 capteurs, dashboard énergie injectée)
+
+### Notes
+- Merci à [@audrenfr-rgb](https://github.com/audrenfr-rgb) pour la proposition détaillée ([#1](https://github.com/MisterMonk3y/ha-mobilize-powerbox/issues/1)), validée sur API live
+- La tension TiC proposée en #1 n'est **pas** exposée par l'API Linky/TiC (vérifié sur PowerBox Verso)
+- Passage de 13 à **24** capteurs
+
+---
+
 ## [1.3.0] - 2026-02-18
 
 ### 🔧 Améliorations de Stabilité

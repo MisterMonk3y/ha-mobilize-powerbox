@@ -31,7 +31,7 @@
 - ✅ **Aucun mot de passe en clair** dans les fichiers
 - ✅ **Support multilingue** (FR/EN)
 - ✅ **Prête pour HACS**
-- ✅ **13 capteurs** dont mesures temps réel
+- ✅ **24 capteurs** dont mesures temps réel, V2G et TiC
 - ✅ **Diagnostics intégrés** pour le debug
 - ✅ **Options de reconfiguration** sans réinstaller
 - ✅ **API locale uniquement** (aucune connexion cloud)
@@ -42,6 +42,8 @@
 - 💡 Puissance instantanée (W)
 - 🔋 Énergie de la session (kWh)
 - 📊 Énergie totale de la borne (kWh)
+- 🔁 Puissance réactive / apparente réseau, facteur de puissance
+- ⬆️ Énergie injectée totale (V2G / surplus)
 
 ### Téléinformation Client (TiC/Linky)
 - 📡 Courant phase A
@@ -53,7 +55,9 @@
 - 🔄 Mode gestion dynamique (Off/TiC/SiteConsumption)
 - 🚗 Mode de charge (FreeAccess/OCPP)
 - 🌍 Pays et type d'installation
-
+- 🔋 Contrat V2G, profil / topologie réseau
+- 🛑 Arrêt d'urgence, courant max hors ligne, déséquilibre de phases
+- 📐 Puissance de conception
 ---
 
 ## 📦 Installation
@@ -127,7 +131,7 @@
 
 ## 📊 Capteurs Créés
 
-L'intégration crée automatiquement **13 entités** :
+L'intégration crée automatiquement **24 entités** :
 
 ### Mesures Temps Réel
 - `sensor.powerbox_courant` - Courant de charge (A)
@@ -135,6 +139,10 @@ L'intégration crée automatiquement **13 entités** :
 - `sensor.powerbox_puissance` - Puissance (W)
 - `sensor.powerbox_energie_session` - Énergie session (kWh)
 - `sensor.powerbox_energie_totale` - Énergie totale borne (kWh)
+- `sensor.powerbox_puissance_reactive` - Puissance réactive (var)
+- `sensor.powerbox_puissance_apparente_reseau` - Puissance apparente réseau (VA)
+- `sensor.powerbox_facteur_de_puissance` - Facteur de puissance
+- `sensor.powerbox_energie_injectee_totale` - Énergie injectée (kWh)
 
 ### Téléinformation (TiC)
 - `sensor.powerbox_courant_tic` - Courant Linky phase A (A)
@@ -147,6 +155,13 @@ L'intégration crée automatiquement **13 entités** :
 - `sensor.powerbox_mode_de_charge` - Mode charge
 - `sensor.powerbox_pays` - Pays configuré
 - `sensor.powerbox_type_d_installation` - Type installation
+- `sensor.powerbox_contrat_v2g` - Contrat V2G
+- `sensor.powerbox_profil_reseau` - Profil réseau
+- `sensor.powerbox_arret_d_urgence` - Arrêt d'urgence
+- `sensor.powerbox_topologie_reseau` - Topologie réseau
+- `sensor.powerbox_puissance_de_conception` - Puissance de conception
+- `sensor.powerbox_courant_max_hors_ligne` - Courant max hors ligne
+- `sensor.powerbox_desequilibre_de_phases` - Déséquilibre de phases
 
 ---
 
@@ -154,6 +169,8 @@ L'intégration crée automatiquement **13 entités** :
 > ## 🔋 Tableau de Bord Énergétique
 >
 > Le capteur **`sensor.powerbox_energie_totale`** est **100% compatible** avec le tableau de bord énergétique de Home Assistant !
+>
+> Le capteur **`sensor.powerbox_energie_injectee_totale`** peut être utilisé comme source d'énergie **retournée au réseau** (V2G / surplus).
 >
 > ### Configuration Rapide
 >
@@ -312,6 +329,11 @@ Les contributions sont les bienvenues ! Consultez [CONTRIBUTING.md](CONTRIBUTING
 
 Voir [CHANGELOG.md](CHANGELOG.md) pour l'historique complet des versions.
 
+### v1.4.0 (2026-09-28) - ✨ Capteurs étendus
+- ✅ +11 capteurs (réactive, apparente, cos φ, énergie injectée, V2G, profil réseau…)
+- ✅ Diagnostics HA corrigés
+- ✅ 24 capteurs au total
+
 ### v1.3.0 (2026-02-18) - 🔧 Stabilité et Résilience
 - ✅ Intervalles optimisés (30s au lieu de 10s) - Réduction de 66% de la charge
 - ✅ Retry automatique avec backoff progressif (3 tentatives)
@@ -348,7 +370,8 @@ Ce projet est sous licence **Apache 2.0** - voir le fichier [LICENSE](LICENSE) p
 
 ## 🙏 Remerciements
 
-- **Communauté Home Assistant** - Pour le support et les idées
+- **[Communauté Home Assistant HACF](https://forum.hacf.fr/t/interfacer-home-assistant-avec-la-borne-mobilize-powerbox-uno/56726)** - Pour le support et les idées
+- **[@audrenfr-rgb](https://github.com/audrenfr-rgb)** - Proposition de capteurs additionnels ([#1](https://github.com/MisterMonk3y/ha-mobilize-powerbox/issues/1))
 - **Contributeurs** - Pour les améliorations et corrections
 - **Utilisateurs testeurs** - Pour les retours et suggestions
 - **Mobilize** - Pour avoir créé la PowerBox ⚡
