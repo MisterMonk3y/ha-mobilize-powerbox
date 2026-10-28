@@ -7,6 +7,30 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.0] - 2026-10-28
+
+### ✨ Nouvelles Entités — État de la borne et du branchement
+
+Nouveau coordinateur (30 s) sur `/status/chargingmodule` et `/status/custominfo`.
+
+#### Capteurs binaires
+- Câble branché
+- Véhicule connecté (pilote IEC 61851 en B/C)
+- En charge
+- Prise verrouillée
+
+#### Capteurs
+- État de charge (Charging, NoCharging, SuspendedEV, SuspendedEVSE…)
+- Processus de charge (Authorization, NoCommunication…)
+- Session
+- Disponibilité
+- Fonctionnement, état pilote, type de câble, PWM pilote (diagnostic)
+
+### 🔧 Diagnostics
+- Les diagnostics incluent maintenant l'état brut de la borne
+
+---
+
 ## [1.4.0] - 2026-09-28
 
 ### ✨ Nouveaux Capteurs

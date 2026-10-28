@@ -1,15 +1,24 @@
 """Capteurs pour Mobilize PowerBox."""
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 import logging
 
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import (
+    SensorEntity,
+    SensorEntityDescription,
+    SensorDeviceClass,
+    SensorStateClass,
+)
 from homeassistant.const import (
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
     UnitOfPower,
     UnitOfEnergy,
     UnitOfReactivePower,
+    PERCENTAGE,
+    EntityCategory,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -17,7 +26,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.config_entries import ConfigEntry
 
 from .const import DOMAIN
-from .coordinator import PowerBoxRealtimeCoordinator, PowerBoxConfigCoordinator
+from .coordinator import (
+    PowerBoxRealtimeCoordinator,
+    PowerBoxConfigCoordinator,
+    PowerBoxStatusCoordinator,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +46,7 @@ async def async_setup_entry(
     domain_data = hass.data[DOMAIN][entry.entry_id]
     coordinator_realtime: PowerBoxRealtimeCoordinator = domain_data["coordinator_realtime"]
     coordinator_config: PowerBoxConfigCoordinator = domain_data["coordinator_config"]
+    coordinator_status: PowerBoxStatusCoordinator = domain_data["coordinator_status"]
     device_info = domain_data["device_info"]
     
     # Créer les capteurs temps réel
@@ -67,7 +81,13 @@ async def async_setup_entry(
         PowerBoxPhaseImbalanceSensor(coordinator_config, device_info),
     ]
     
-    async_add_entities(realtime_sensors + config_sensors, True)
+    # Créer les capteurs d'état de la borne
+    status_sensors = [
+        PowerBoxStatusSensor(coordinator_status, device_info, description)
+        for description in STATUS_SENSORS
+    ]
+    
+    async_add_entities(realtime_sensors + config_sensors + status_sensors, True)
 
 
 # ============================================================================
@@ -749,6 +769,114 @@ class PowerBoxPhaseImbalanceSensor(CoordinatorEntity, SensorEntity):
             self._attr_native_value = value if value is not None else "enabled"
         else:
             self._attr_native_value = "Off"
+        self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        """Retourne si l'entité est disponible."""
+        return self.coordinator.last_update_success
+
+
+# ============================================================================
+# CAPTEURS D'ÉTAT (depuis /status/chargingmodule et /status/custominfo)
+# ============================================================================
+
+@dataclass(frozen=True, kw_only=True)
+class PowerBoxStatusSensorDescription(SensorEntityDescription):
+    """Description d'un capteur d'état PowerBox."""
+
+    value_fn: Callable[[PowerBoxStatusCoordinator], str | int | None]
+
+
+def _to_int(value) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+STATUS_SENSORS: tuple[PowerBoxStatusSensorDescription, ...] = (
+    PowerBoxStatusSensorDescription(
+        key="charging_state",
+        name="PowerBox État de Charge",
+        icon="mdi:ev-station",
+        value_fn=lambda c: c.get_socket_value("ChargingState"),
+    ),
+    PowerBoxStatusSensorDescription(
+        key="charging_process",
+        name="PowerBox Processus de Charge",
+        icon="mdi:progress-clock",
+        value_fn=lambda c: c.get_charging_module_value("states", "ChargingProcess"),
+    ),
+    PowerBoxStatusSensorDescription(
+        key="session_state",
+        name="PowerBox Session",
+        icon="mdi:timeline-clock",
+        value_fn=lambda c: c.get_charging_module_value("states", "Session"),
+    ),
+    PowerBoxStatusSensorDescription(
+        key="availability",
+        name="PowerBox Disponibilité",
+        icon="mdi:check-network",
+        value_fn=lambda c: c.get_charging_module_value("states", "Availability"),
+    ),
+    PowerBoxStatusSensorDescription(
+        key="operation_state",
+        name="PowerBox Fonctionnement",
+        icon="mdi:cog-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.get_charging_module_value("states", "Operation"),
+    ),
+    PowerBoxStatusSensorDescription(
+        key="pilot_state",
+        name="PowerBox État Pilote",
+        icon="mdi:sine-wave",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.get_charging_module_value("basic", "CP")
+        or c.get_socket_value("state"),
+    ),
+    PowerBoxStatusSensorDescription(
+        key="cable_type",
+        name="PowerBox Type de Câble",
+        icon="mdi:power-plug",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.get_charging_module_value("basic", "PP"),
+    ),
+    PowerBoxStatusSensorDescription(
+        key="pwm",
+        name="PowerBox PWM Pilote",
+        icon="mdi:square-wave",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: _to_int(c.get_socket_value("PWM")),
+    ),
+)
+
+
+class PowerBoxStatusSensor(CoordinatorEntity, SensorEntity):
+    """Capteur d'état de la borne et du branchement."""
+
+    entity_description: PowerBoxStatusSensorDescription
+
+    def __init__(
+        self,
+        coordinator: PowerBoxStatusCoordinator,
+        device_info,
+        description: PowerBoxStatusSensorDescription,
+    ):
+        """Initialisation."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_name = description.name
+        self._attr_unique_id = f"powerbox_{description.key}"
+        self._attr_device_info = device_info
+        self._attr_native_value = description.value_fn(coordinator)
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Mise à jour du capteur avec les données du coordinateur."""
+        self._attr_native_value = self.entity_description.value_fn(self.coordinator)
         self.async_write_ha_state()
 
     @property

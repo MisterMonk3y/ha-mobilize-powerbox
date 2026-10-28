@@ -72,6 +72,7 @@ async def async_get_config_entry_diagnostics(
         DATA_COORDINATOR
     )
     coordinator_config = domain_data.get("coordinator_config")
+    coordinator_status = domain_data.get("coordinator_status")
 
     meters_parsed = None
     if coordinator_realtime and coordinator_realtime.data:
@@ -80,6 +81,10 @@ async def async_get_config_entry_diagnostics(
     configs = None
     if coordinator_config and coordinator_config.data:
         configs = coordinator_config.data.configs
+
+    status = None
+    if coordinator_status and coordinator_status.data:
+        status = coordinator_status.data.status
 
     diagnostics_data = {
         "entry": {
@@ -100,9 +105,16 @@ async def async_get_config_entry_diagnostics(
             ),
             "update_interval": str(getattr(coordinator_config, "update_interval", None)),
         },
+        "coordinator_status": {
+            "last_update_success": getattr(
+                coordinator_status, "last_update_success", None
+            ),
+            "update_interval": str(getattr(coordinator_status, "update_interval", None)),
+        },
         "data": {
             "meters": _serialize_meters(meters_parsed),
             "configs": _serialize_configs(configs),
+            "status": status,
         },
         "config": async_redact_data(dict(entry.data), TO_REDACT),
     }

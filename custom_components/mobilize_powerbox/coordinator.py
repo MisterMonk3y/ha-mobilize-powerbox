@@ -24,6 +24,7 @@ class PowerBoxData:
 
     meters_parsed: dict
     configs: dict | None = None
+    status: dict | None = None
 
 
 class PowerBoxAPIClient:
@@ -390,8 +391,86 @@ class PowerBoxConfigCoordinator(DataUpdateCoordinator):
         """Récupère une valeur de configuration."""
         if not self.data or not self.data.configs:
             return None
-        
+
         config = self.data.configs.get(config_key)
         if config:
             return config.get("config_value")
         return None
+
+
+class PowerBoxStatusCoordinator(DataUpdateCoordinator):
+    """Coordinateur pour l'état de la borne et du branchement (30s)."""
+
+    data: PowerBoxData
+
+    def __init__(self, hass: HomeAssistant, api_client: PowerBoxAPIClient) -> None:
+        """Initialisation du coordinateur de statut."""
+        self.api_client = api_client
+        self._last_successful_data = None
+
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="Mobilize PowerBox Status",
+            update_method=self.async_update_data,
+            update_interval=SCAN_INTERVAL_REALTIME,
+        )
+
+    async def async_update_data(self) -> PowerBoxData:
+        """Récupère l'état du module de charge et des prises."""
+        _LOGGER.debug("[Status] Starting status update")
+        try:
+            charging_module = await self.hass.async_add_executor_job(
+                self.api_client.fetch_data, "status/chargingmodule"
+            )
+            custom_info = await self.hass.async_add_executor_job(
+                self.api_client.fetch_data, "status/custominfo"
+            )
+
+            result = PowerBoxData(
+                meters_parsed={},
+                status={
+                    "chargingmodule": charging_module or {},
+                    "custominfo": custom_info or {},
+                },
+            )
+            self._last_successful_data = result
+            return result
+
+        except UpdateFailed as err:
+            if self._last_successful_data:
+                _LOGGER.warning(
+                    "[Status] Erreur de mise à jour, conservation du dernier état: %s", err
+                )
+                return self._last_successful_data
+            _LOGGER.error("[Status] Failed to update status (no previous data): %s", err)
+            raise
+
+        except Exception as err:
+            if self._last_successful_data:
+                _LOGGER.warning("[Status] Unexpected error, keeping previous status: %s", err)
+                return self._last_successful_data
+            _LOGGER.error("[Status] Failed to update status: %s", err)
+            raise UpdateFailed(f"Erreur lors de la mise à jour du statut: {err}") from err
+
+    def _custominfo(self) -> dict:
+        if not self.data or not self.data.status:
+            return {}
+        return self.data.status.get("custominfo") or {}
+
+    def get_socket_value(self, key: str):
+        """Récupère une valeur de la prise active (M3 = Type 2 par défaut)."""
+        custom_info = self._custominfo()
+        socket = custom_info.get(custom_info.get("ActiveSocket") or "M3") or {}
+        return socket.get(key)
+
+    def get_custominfo_value(self, key: str):
+        """Récupère une valeur racine de /status/custominfo."""
+        return self._custominfo().get(key)
+
+    def get_charging_module_value(self, section: str, key: str):
+        """Récupère une valeur de /status/chargingmodule (section 'states' ou 'basic')."""
+        if not self.data or not self.data.status:
+            return None
+        module = self.data.status.get("chargingmodule") or {}
+        return (module.get(section) or {}).get(key)

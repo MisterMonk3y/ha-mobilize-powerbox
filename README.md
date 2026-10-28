@@ -31,10 +31,16 @@
 - ✅ **Aucun mot de passe en clair** dans les fichiers
 - ✅ **Support multilingue** (FR/EN)
 - ✅ **Prête pour HACS**
-- ✅ **24 capteurs** dont mesures temps réel, V2G et TiC
+- ✅ **36 entités** dont état du branchement, mesures temps réel, V2G et TiC
 - ✅ **Diagnostics intégrés** pour le debug
 - ✅ **Options de reconfiguration** sans réinstaller
 - ✅ **API locale uniquement** (aucune connexion cloud)
+
+### État de la Borne et du Branchement (toutes les 30s)
+- 🔌 Câble branché / véhicule connecté
+- ⚡ En charge
+- 🔒 Prise verrouillée
+- 🚦 État de charge, processus de charge (ex : attente d'autorisation), session, disponibilité
 
 ### Mesures en Temps Réel (toutes les 30s)
 - 🔌 Courant de charge (A)
@@ -131,7 +137,18 @@
 
 ## 📊 Capteurs Créés
 
-L'intégration crée automatiquement **24 entités** :
+L'intégration crée automatiquement **36 entités** :
+
+### État de la Borne
+- `binary_sensor.powerbox_cable_branche` - Câble branché dans la prise
+- `binary_sensor.powerbox_vehicule_connecte` - Véhicule détecté (pilote en B/C)
+- `binary_sensor.powerbox_en_charge` - Charge en cours
+- `binary_sensor.powerbox_prise_verrouillee` - Câble verrouillé dans la prise
+- `sensor.powerbox_etat_de_charge` - Charging / NoCharging / SuspendedEV / SuspendedEVSE…
+- `sensor.powerbox_processus_de_charge` - Authorization / NoCommunication…
+- `sensor.powerbox_session` - État de la session
+- `sensor.powerbox_disponibilite` - Disponibilité de la borne
+- `sensor.powerbox_fonctionnement`, `sensor.powerbox_etat_pilote`, `sensor.powerbox_type_de_cable`, `sensor.powerbox_pwm_pilote` - Diagnostic
 
 ### Mesures Temps Réel
 - `sensor.powerbox_courant` - Courant de charge (A)

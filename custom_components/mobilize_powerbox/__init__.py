@@ -18,7 +18,12 @@ from .const import (
     INTEGRATION_MANUFACTURER,
     INTEGRATION_MODEL,
 )
-from .coordinator import PowerBoxAPIClient, PowerBoxRealtimeCoordinator, PowerBoxConfigCoordinator
+from .coordinator import (
+    PowerBoxAPIClient,
+    PowerBoxRealtimeCoordinator,
+    PowerBoxConfigCoordinator,
+    PowerBoxStatusCoordinator,
+)
 
 # Désactiver les avertissements SSL
 requests.packages.urllib3.disable_warnings(
@@ -27,7 +32,7 @@ requests.packages.urllib3.disable_warnings(
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -47,13 +52,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Créer le client API partagé
     api_client = PowerBoxAPIClient(base_url, username, password, verify_ssl)
     
-    # Créer les coordinateurs (temps réel + configuration)
+    # Créer les coordinateurs (temps réel + configuration + statut)
     coordinator_realtime = PowerBoxRealtimeCoordinator(hass, api_client)
     coordinator_config = PowerBoxConfigCoordinator(hass, api_client)
+    coordinator_status = PowerBoxStatusCoordinator(hass, api_client)
     
     # Faire les premières mises à jour
     await coordinator_realtime.async_config_entry_first_refresh()
     await coordinator_config.async_config_entry_first_refresh()
+    await coordinator_status.async_config_entry_first_refresh()
     
     # Informations sur l'appareil
     device_info = DeviceInfo(
@@ -71,6 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DATA_COORDINATOR: coordinator_realtime,  # Pour compatibilité
         "coordinator_realtime": coordinator_realtime,
         "coordinator_config": coordinator_config,
+        "coordinator_status": coordinator_status,
         "api_client": api_client,
         DATA_DEVICE_INFO: device_info,
     }
