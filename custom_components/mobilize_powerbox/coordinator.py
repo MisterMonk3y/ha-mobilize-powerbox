@@ -17,6 +17,14 @@ SCAN_INTERVAL_REALTIME = timedelta(seconds=30)  # Mesures temps réel - augment�
 SCAN_INTERVAL_CONFIG = timedelta(minutes=10)  # Configuration - augmenté pour stabilité
 SCAN_INTERVAL_REALTIME_ERROR = timedelta(minutes=2)  # Intervalle après erreur (backoff)
 
+METER_VIRTUAL = "EVPLCCom-Virtual-Meter"
+METER_POWER_BOARD = "Power Board Meter"
+# Compteur du foyer : TiC (Linky) ou pince ampèremétrique en mode SiteConsumption
+HOUSEHOLD_METERS = ("TiC", "SiteConsumptionMeter")
+# Hors charge, le compteur virtuel garde ses dernières valeurs : au-delà de cet écart
+# avec le Power Board Meter (même horloge), on considère ses valeurs comme figées
+VIRTUAL_METER_MAX_AGE_MS = 120_000
+
 
 @dataclass
 class PowerBoxData:
@@ -323,6 +331,57 @@ class PowerBoxRealtimeCoordinator(DataUpdateCoordinator):
         if value_data:
             return value_data.get("value")
         return None
+
+    def _get_meter_entry(self, meter_model: str, value_name: str) -> dict | None:
+        if not self.data or not self.data.meters_parsed:
+            return None
+        meter = self.data.meters_parsed.get(meter_model)
+        if not meter or not meter.get("connected"):
+            return None
+        return meter.get("values", {}).get(value_name)
+
+    def get_live_charge_value(self, value_name: str):
+        """Valeur de charge du compteur virtuel, ou du Power Board Meter si elle est figée."""
+        virtual = self._get_meter_entry(METER_VIRTUAL, value_name)
+        board = self._get_meter_entry(METER_POWER_BOARD, value_name)
+        if virtual and board:
+            age = (board.get("timestamp") or 0) - (virtual.get("timestamp") or 0)
+            return board["value"] if age > VIRTUAL_METER_MAX_AGE_MS else virtual["value"]
+        if virtual:
+            return virtual["value"]
+        if board:
+            return board["value"]
+        return None
+
+    def get_household_meter_model(self) -> str | None:
+        """Retourne le compteur foyer disponible (TiC ou SiteConsumptionMeter)."""
+        if not self.data or not self.data.meters_parsed:
+            return None
+        for model in HOUSEHOLD_METERS:
+            meter = self.data.meters_parsed.get(model)
+            if meter and meter.get("connected"):
+                return model
+        return None
+
+    def get_household_value(self, value_name: str):
+        """Récupère une valeur du compteur foyer."""
+        model = self.get_household_meter_model()
+        return self.get_meter_value(model, value_name) if model else None
+
+    def get_household_apparent_power(self):
+        """Puissance apparente du foyer.
+
+        SiteConsumptionMeter laisse le total à 0 et ne renseigne que les phases :
+        on additionne alors les phases.
+        """
+        total = self.get_household_value("ApparentPower_VA")
+        phases = [
+            self.get_household_value(f"ApparentPower_Phase{phase}_VA") for phase in "ABC"
+        ]
+        phases = [value for value in phases if value is not None]
+        if not total and phases:
+            return sum(phases)
+        return total
 
 
 class PowerBoxConfigCoordinator(DataUpdateCoordinator):

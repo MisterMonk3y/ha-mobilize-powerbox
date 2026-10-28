@@ -25,7 +25,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.config_entries import ConfigEntry
 
-from .const import DOMAIN
+from .const import DOMAIN, ATTR_SOURCE
 from .coordinator import (
     PowerBoxRealtimeCoordinator,
     PowerBoxConfigCoordinator,
@@ -110,7 +110,7 @@ class PowerBoxCurrentSensor(CoordinatorEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Mise à jour du capteur avec les données du coordinateur."""
-        value = self.coordinator.get_meter_value("EVPLCCom-Virtual-Meter", "Current_mA")
+        value = self.coordinator.get_live_charge_value("Current_mA")
         if value is not None:
             self._attr_native_value = round(value / 1000, 2)  # mA vers A
         else:
@@ -139,7 +139,7 @@ class PowerBoxVoltageSensor(CoordinatorEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Mise à jour du capteur avec les données du coordinateur."""
-        value = self.coordinator.get_meter_value("EVPLCCom-Virtual-Meter", "Voltage_mV")
+        value = self.coordinator.get_live_charge_value("Voltage_mV")
         if value is not None:
             self._attr_native_value = round(value / 1000, 1)  # mV vers V
         else:
@@ -168,7 +168,7 @@ class PowerBoxPowerSensor(CoordinatorEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Mise à jour du capteur avec les données du coordinateur."""
-        value = self.coordinator.get_meter_value("EVPLCCom-Virtual-Meter", "ActivePower_W")
+        value = self.coordinator.get_live_charge_value("ActivePower_W")
         if value is not None:
             self._attr_native_value = round(value, 0)
         else:
@@ -255,11 +255,14 @@ class PowerBoxTicCurrentSensor(CoordinatorEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Mise à jour du capteur avec les données du coordinateur."""
-        value = self.coordinator.get_meter_value("TiC", "Current_PhaseA_mA")
+        value = self.coordinator.get_household_value("Current_PhaseA_mA")
         if value is not None:
             self._attr_native_value = round(value / 1000, 2)  # mA vers A
         else:
             self._attr_native_value = None
+        self._attr_extra_state_attributes = {
+            ATTR_SOURCE: self.coordinator.get_household_meter_model()
+        }
         self.async_write_ha_state()
 
     @property
@@ -284,11 +287,14 @@ class PowerBoxTicPowerSensor(CoordinatorEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Mise à jour du capteur avec les données du coordinateur."""
-        value = self.coordinator.get_meter_value("TiC", "ApparentPower_VA")
+        value = self.coordinator.get_household_apparent_power()
         if value is not None:
             self._attr_native_value = round(value, 0)
         else:
             self._attr_native_value = None
+        self._attr_extra_state_attributes = {
+            ATTR_SOURCE: self.coordinator.get_household_meter_model()
+        }
         self.async_write_ha_state()
 
     @property

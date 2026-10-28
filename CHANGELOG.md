@@ -7,6 +7,17 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.1] - 2026-10-28
+
+### 🔧 Corrigé
+- Courant TiC et Puissance TiC restaient « Inconnu » en mode de gestion dynamique `SiteConsumption` (pince ampèremétrique) : l'intégration lit maintenant `SiteConsumptionMeter` quand le compteur `TiC` est absent, et additionne les puissances par phase quand le total vaut 0 ([#2](https://github.com/MisterMonk3y/ha-mobilize-powerbox/issues/2))
+- Courant, Tension et Puissance restaient figés hors charge : quand les valeurs du compteur de session sont périmées, l'intégration utilise le Power Board Meter, toujours à jour ([#2](https://github.com/MisterMonk3y/ha-mobilize-powerbox/issues/2))
+
+### ✨ Amélioré
+- Attribut `source` sur Courant TiC / Puissance TiC indiquant le compteur utilisé (`TiC` ou `SiteConsumptionMeter`)
+
+---
+
 ## [1.5.0] - 2026-10-28
 
 ### ✨ Nouvelles Entités — État de la borne et du branchement
