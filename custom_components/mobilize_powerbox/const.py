@@ -33,6 +33,7 @@ DATA_UNDO_UPDATE_LISTENER = "undo_update_listener"
 # Attributs des capteurs
 ATTR_LAST_UPDATE = "last_update"
 ATTR_SOURCE = "source"
+ATTR_ESTIMATED = "estimated"
 ATTR_METER_ID = "meter_id"
 
 # IDs des compteurs (meters)

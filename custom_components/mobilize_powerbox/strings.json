@@ -33,12 +33,23 @@
   "options": {
     "step": {
       "init": {
-        "title": "Options Mobilize PowerBox",
+        "title": "Identifiants de connexion",
+        "description": "Changez le compte utilisé par Home Assistant pour se connecter à la borne. La connexion est testée avant l'enregistrement.",
         "data": {
-          "name": "Nom de l'appareil",
+          "username": "Nom d'utilisateur",
+          "password": "Mot de passe",
           "verify_ssl": "Vérifier le certificat SSL"
+        },
+        "data_description": {
+          "password": "Laissez vide pour garder le mot de passe actuel."
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter à la PowerBox. Vérifiez l'adresse IP.",
+      "invalid_auth": "Identifiants invalides. Vérifiez le nom d'utilisateur et le mot de passe.",
+      "timeout": "Délai d'attente dépassé. La PowerBox ne répond pas.",
+      "unknown": "Erreur inattendue lors de la connexion."
     }
   }
 }

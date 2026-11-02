@@ -7,6 +7,22 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.6.0] - 2026-11-02
+
+### ✨ Nouvelle Entité
+- **PowerBox Puissance Active Foyer** (W), utilisable comme capteur de puissance réseau dans le tableau de bord Énergie ([#2](https://github.com/MisterMonk3y/ha-mobilize-powerbox/issues/2))
+  - Mode `SiteConsumption` : valeur exacte, calculée par phase avec P = √(S² − Q²)
+  - Mode `TiC` : la borne ne remonte pas la puissance réactive, la valeur reprend la puissance apparente (attribut `estimated: true`)
+
+### 🔧 Corrigé
+- Le bouton **Configurer** plantait (`PowerBoxOptionsFlow() takes no arguments`)
+- Les options enregistrées n'étaient jamais appliquées : elles permettent maintenant de changer le compte et le mot de passe (testés avant l'enregistrement) et l'option SSL
+
+### ⚠️ Compatibilité
+- Home Assistant 2024.11 minimum
+
+---
+
 ## [1.5.1] - 2026-10-28
 
 ### 🔧 Corrigé

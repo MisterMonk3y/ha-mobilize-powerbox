@@ -33,12 +33,23 @@
   "options": {
     "step": {
       "init": {
-        "title": "Mobilize PowerBox Options",
+        "title": "Connection credentials",
+        "description": "Change the account Home Assistant uses to connect to the charger. The connection is tested before saving.",
         "data": {
-          "name": "Device Name",
+          "username": "Username",
+          "password": "Password",
           "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "password": "Leave empty to keep the current password."
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to PowerBox. Check the IP address.",
+      "invalid_auth": "Invalid credentials. Check your username and password.",
+      "timeout": "Connection timeout. PowerBox is not responding.",
+      "unknown": "Unexpected error during connection."
     }
   }
 }

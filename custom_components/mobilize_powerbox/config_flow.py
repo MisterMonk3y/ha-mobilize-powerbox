@@ -10,6 +10,11 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_NAME
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .const import (
     DOMAIN,
@@ -145,30 +150,60 @@ class PowerBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
-        return PowerBoxOptionsFlow(config_entry)
+        # HA renseigne lui-même self.config_entry (2024.11+)
+        return PowerBoxOptionsFlow()
 
 
 class PowerBoxOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for PowerBox."""
 
     async def async_step_init(self, user_input=None):
-        """Manage the options."""
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+        """Modifie les identifiants de connexion."""
+        errors = {}
+        data = self.config_entry.data
 
-        # Options modifiables après configuration
+        if user_input is not None:
+            # Mot de passe laissé vide : on garde l'actuel
+            if not user_input.get(CONF_PASSWORD):
+                user_input[CONF_PASSWORD] = data[CONF_PASSWORD]
+            try:
+                await validate_connection(
+                    self.hass,
+                    data[CONF_HOST],
+                    user_input[CONF_USERNAME],
+                    user_input[CONF_PASSWORD],
+                    user_input[CONF_VERIFY_SSL],
+                )
+                # Le setup lit entry.data : on y écrit les nouveaux identifiants,
+                # l'update listener recharge ensuite l'intégration
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data={**data, **user_input}
+                )
+                return self.async_create_entry(title="", data={})
+
+            except CannotConnect as err:
+                errors["base"] = err.error_code
+                _LOGGER.error("Cannot connect to PowerBox: %s", err.message)
+            except Exception:
+                errors["base"] = ERROR_UNKNOWN
+                _LOGGER.exception("Unexpected exception during options update")
+
         options_schema = vol.Schema({
-            vol.Optional(
-                CONF_NAME,
-                default=self.config_entry.data.get(CONF_NAME, DEFAULT_NAME)
+            vol.Required(
+                CONF_USERNAME,
+                default=data.get(CONF_USERNAME, DEFAULT_USERNAME)
             ): str,
+            vol.Optional(CONF_PASSWORD): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+            ),
             vol.Optional(
                 CONF_VERIFY_SSL,
-                default=self.config_entry.data.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL)
+                default=data.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL)
             ): bool,
         })
 
         return self.async_show_form(
             step_id="init",
-            data_schema=options_schema
+            data_schema=options_schema,
+            errors=errors,
         )

@@ -54,6 +54,7 @@
 ### Téléinformation Client (TiC/Linky)
 - 📡 Courant phase A
 - ⚡ Puissance apparente
+- 🏠 Puissance active du foyer (W), pour le tableau de bord Énergie
 
 ### Configuration
 - ⚙️ Courant maximum autorisé
@@ -164,6 +165,7 @@ L'intégration crée automatiquement **36 entités** :
 ### Téléinformation (TiC)
 - `sensor.powerbox_courant_tic` - Courant Linky phase A (A)
 - `sensor.powerbox_puissance_tic` - Puissance Linky (VA)
+- `sensor.powerbox_puissance_active_foyer` - Puissance active du foyer (W). Exacte en mode SiteConsumption (P = √(S² − Q²) par phase) ; en mode TiC, la borne ne remonte pas la puissance réactive : la valeur reprend la puissance apparente (attribut `estimated: true`)
 
 ### Configuration
 - `sensor.powerbox_courant_maximum` - Courant max configuré
@@ -300,7 +302,7 @@ Vous pouvez reconfigurer l'intégration sans la désinstaller :
 1. **Configuration** → **Appareils et Services**
 2. Cliquez sur **Mobilize PowerBox Verso**
 3. Cliquez sur **Configurer**
-4. Modifiez le nom ou l'option SSL
+4. Modifiez le compte, le mot de passe (laisser vide pour le garder) ou l'option SSL ; la connexion est testée avant l'enregistrement
 5. Enregistrez
 
 ### Diagnostics

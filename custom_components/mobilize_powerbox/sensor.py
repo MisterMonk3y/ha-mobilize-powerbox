@@ -25,7 +25,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.config_entries import ConfigEntry
 
-from .const import DOMAIN, ATTR_SOURCE
+from .const import DOMAIN, ATTR_SOURCE, ATTR_ESTIMATED
 from .coordinator import (
     PowerBoxRealtimeCoordinator,
     PowerBoxConfigCoordinator,
@@ -58,6 +58,7 @@ async def async_setup_entry(
         PowerBoxTotalEnergySensor(coordinator_realtime, device_info),
         PowerBoxTicCurrentSensor(coordinator_realtime, device_info),
         PowerBoxTicPowerSensor(coordinator_realtime, device_info),
+        PowerBoxHouseholdActivePowerSensor(coordinator_realtime, device_info),
         PowerBoxReactivePowerSensor(coordinator_realtime, device_info),
         PowerBoxApparentPowerSensor(coordinator_realtime, device_info),
         PowerBoxPowerFactorSensor(coordinator_realtime, device_info),
@@ -294,6 +295,41 @@ class PowerBoxTicPowerSensor(CoordinatorEntity, SensorEntity):
             self._attr_native_value = None
         self._attr_extra_state_attributes = {
             ATTR_SOURCE: self.coordinator.get_household_meter_model()
+        }
+        self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        """Retourne si l'entité est disponible."""
+        return self.coordinator.last_update_success
+
+
+class PowerBoxHouseholdActivePowerSensor(CoordinatorEntity, SensorEntity):
+    """Capteur de puissance active du foyer (W)."""
+
+    def __init__(self, coordinator: PowerBoxRealtimeCoordinator, device_info):
+        """Initialisation."""
+        super().__init__(coordinator)
+        self._attr_name = "PowerBox Puissance Active Foyer"
+        self._attr_unique_id = f"powerbox_household_active_power"
+        self._attr_native_unit_of_measurement = UnitOfPower.WATT
+        self._attr_device_class = SensorDeviceClass.POWER
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_icon = "mdi:home-lightning-bolt"
+        self._attr_device_info = device_info
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Mise à jour du capteur avec les données du coordinateur."""
+        value, estimated = self.coordinator.get_household_active_power()
+        if value is not None:
+            self._attr_native_value = round(value, 0)
+        else:
+            self._attr_native_value = None
+        self._attr_extra_state_attributes = {
+            ATTR_SOURCE: self.coordinator.get_household_meter_model(),
+            # Sans puissance réactive (TiC), la valeur est la puissance apparente
+            ATTR_ESTIMATED: estimated,
         }
         self.async_write_ha_state()
 

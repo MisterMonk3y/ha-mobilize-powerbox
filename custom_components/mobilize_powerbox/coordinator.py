@@ -383,6 +383,31 @@ class PowerBoxRealtimeCoordinator(DataUpdateCoordinator):
             return sum(phases)
         return total
 
+    def get_household_active_power(self) -> tuple[float | None, bool]:
+        """Puissance active du foyer et indicateur d'estimation.
+
+        SiteConsumptionMeter donne S et Q par phase : P = sqrt(S² - Q²), exact.
+        La TiC ne donne que S : on renvoie S comme approximation de P.
+        """
+        total = 0.0
+        has_phase = False
+        estimated = False
+        for phase in "ABC":
+            s_va = self.get_household_value(f"ApparentPower_Phase{phase}_VA")
+            if s_va is None:
+                continue
+            has_phase = True
+            q_var = self.get_household_value(f"ReactivePower_Phase{phase}_var")
+            if q_var is None:
+                estimated = True
+                q_var = 0
+            total += max(s_va * s_va - q_var * q_var, 0) ** 0.5
+        if has_phase:
+            return total, estimated
+
+        apparent = self.get_household_apparent_power()
+        return apparent, apparent is not None
+
 
 class PowerBoxConfigCoordinator(DataUpdateCoordinator):
     """Coordinateur pour la configuration (5 minutes)."""
