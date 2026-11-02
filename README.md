@@ -36,7 +36,7 @@
 - ✅ **Options de reconfiguration** sans réinstaller
 - ✅ **API locale uniquement** (aucune connexion cloud)
 
-### État de la Borne et du Branchement (toutes les 30s)
+### État de la Borne et du Branchement (toutes les 60s)
 - 🔌 Câble branché / véhicule connecté
 - ⚡ En charge
 - 🔒 Prise verrouillée
@@ -150,6 +150,7 @@ L'intégration crée automatiquement **36 entités** :
 - `sensor.powerbox_session` - État de la session
 - `sensor.powerbox_disponibilite` - Disponibilité de la borne
 - `sensor.powerbox_fonctionnement`, `sensor.powerbox_etat_pilote`, `sensor.powerbox_type_de_cable`, `sensor.powerbox_pwm_pilote` - Diagnostic
+- `sensor.powerbox_memoire_disponible` (Mio), `sensor.powerbox_charge_cpu` (%) - Santé système de la borne (diagnostic)
 
 ### Mesures Temps Réel
 - `sensor.powerbox_courant` - Courant de charge (A)

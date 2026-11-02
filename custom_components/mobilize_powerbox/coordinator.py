@@ -4,8 +4,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
+import threading
 import time
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -16,6 +19,11 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL_REALTIME = timedelta(seconds=30)  # Mesures temps réel - augmenté pour réduire la charge
 SCAN_INTERVAL_CONFIG = timedelta(minutes=10)  # Configuration - augmenté pour stabilité
 SCAN_INTERVAL_REALTIME_ERROR = timedelta(minutes=2)  # Intervalle après erreur (backoff)
+SCAN_INTERVAL_STATUS = timedelta(seconds=60)  # État de la borne et santé système
+# Au-delà, les dernières valeurs connues ne sont plus servies : les entités passent
+# indisponibles (sinon une API figée affiche des valeurs fausses pendant des jours)
+STALE_DATA_MAX_AGE = 300  # secondes
+STALE_CONFIG_MAX_AGE = 1800  # secondes
 
 METER_VIRTUAL = "EVPLCCom-Virtual-Meter"
 METER_POWER_BOARD = "Power Board Meter"
@@ -24,6 +32,11 @@ HOUSEHOLD_METERS = ("TiC", "SiteConsumptionMeter")
 # Hors charge, le compteur virtuel garde ses dernières valeurs : au-delà de cet écart
 # avec le Power Board Meter (même horloge), on considère ses valeurs comme figées
 VIRTUAL_METER_MAX_AGE_MS = 120_000
+
+
+def _is_fresh(last_success: float | None, max_age: float) -> bool:
+    """Indique si les dernières données réussies peuvent encore être servies."""
+    return last_success is not None and time.monotonic() - last_success < max_age
 
 
 @dataclass
@@ -48,16 +61,28 @@ class PowerBoxAPIClient:
         self._session = None
         self._consecutive_errors = 0
         self._last_error_time = None
-    
+        # Les coordinateurs tournent en parallèle dans l'executor : on sérialise
+        # les requêtes pour qu'elles partagent la même connexion et le même token
+        self._lock = threading.Lock()
+
     def _get_session(self):
         """Récupère ou crée une session HTTP."""
         if self._session is None:
             self._session = requests.Session()
-            # Configuration de la session pour éviter les problèmes de connexion
-            self._session.headers.update({
-                "Connection": "close",  # Évite les problèmes de keep-alive
-                "User-Agent": "HomeAssistant/MobilizePowerBox"
-            })
+            self._session.headers.update({"User-Agent": "HomeAssistant/MobilizePowerBox"})
+            # Une seule connexion keep-alive pour tous les endpoints : la borne la
+            # ferme après ~30 s d'inactivité, une requête GET peut alors tomber sur
+            # le socket en cours de fermeture, d'où une nouvelle tentative
+            retry = Retry(
+                total=1,
+                connect=1,
+                read=1,
+                status=0,
+                allowed_methods=frozenset({"GET"}),
+                backoff_factor=0,
+            )
+            adapter = HTTPAdapter(max_retries=retry, pool_connections=1, pool_maxsize=1)
+            self._session.mount("https://", adapter)
         return self._session
 
     def _get_auth_token(self):
@@ -129,6 +154,10 @@ class PowerBoxAPIClient:
 
     def fetch_data(self, endpoint: str):
         """Récupère les données depuis un endpoint avec gestion d'erreurs améliorée."""
+        with self._lock:
+            return self._fetch_data(endpoint)
+
+    def _fetch_data(self, endpoint: str):
         if not self._token:
             self._token = self._get_auth_token()
         
@@ -169,15 +198,15 @@ class PowerBoxAPIClient:
             except (requests.exceptions.ConnectionError, ConnectionResetError, requests.exceptions.Timeout) as err:
                 _LOGGER.warning(f"Erreur de connexion sur {endpoint} (tentative {attempt + 1}/{max_retries}): {err}")
                 
-                # Réinitialiser la session et le token
+                # Réinitialiser la session ; le token reste valide (un nouveau login
+                # déconnecterait l'interface web), un 401 le renouvellera si besoin
                 if self._session:
                     try:
                         self._session.close()
                     except Exception:
                         pass
                     self._session = None
-                self._token = None
-                
+
                 if attempt < max_retries - 1:
                     wait_time = retry_delay * (attempt + 1)
                     _LOGGER.debug(f"Attente de {wait_time}s avant nouvelle tentative")
@@ -225,6 +254,7 @@ class PowerBoxRealtimeCoordinator(DataUpdateCoordinator):
         """Initialisation du coordinateur temps réel."""
         self.api_client = api_client
         self._last_successful_data = None
+        self._last_success: float | None = None
         self._error_count = 0
         
         # Initialiser DataUpdateCoordinator
@@ -289,6 +319,7 @@ class PowerBoxRealtimeCoordinator(DataUpdateCoordinator):
             # Sauvegarder les données réussies
             result = PowerBoxData(meters_parsed=meters_parsed)
             self._last_successful_data = result
+            self._last_success = time.monotonic()
             self._error_count = 0
             
             return result
@@ -297,7 +328,7 @@ class PowerBoxRealtimeCoordinator(DataUpdateCoordinator):
             self._error_count += 1
             
             # Si on a des données précédentes, on les garde
-            if self._last_successful_data:
+            if _is_fresh(self._last_success, STALE_DATA_MAX_AGE):
                 _LOGGER.warning(
                     "[Realtime] Erreur de mise à jour (erreur #%d), conservation des dernières valeurs: %s",
                     self._error_count,
@@ -306,7 +337,7 @@ class PowerBoxRealtimeCoordinator(DataUpdateCoordinator):
                 # Retourner les dernières données connues au lieu de lever une erreur
                 return self._last_successful_data
             else:
-                _LOGGER.error("[Realtime] Failed to update data (no previous data): %s", err)
+                _LOGGER.error("[Realtime] Failed to update data (no recent data): %s", err)
                 raise
                 
         except Exception as err:
@@ -314,7 +345,7 @@ class PowerBoxRealtimeCoordinator(DataUpdateCoordinator):
             _LOGGER.error("[Realtime] Unexpected error: %s", err)
             
             # Si on a des données précédentes, on les garde
-            if self._last_successful_data:
+            if _is_fresh(self._last_success, STALE_DATA_MAX_AGE):
                 return self._last_successful_data
             raise UpdateFailed(f"Erreur lors de la mise à jour des mesures: {err}") from err
 
@@ -418,6 +449,7 @@ class PowerBoxConfigCoordinator(DataUpdateCoordinator):
         """Initialisation du coordinateur de configuration."""
         self.api_client = api_client
         self._last_successful_data = None
+        self._last_success: float | None = None
         
         # Initialiser DataUpdateCoordinator
         super().__init__(
@@ -449,23 +481,24 @@ class PowerBoxConfigCoordinator(DataUpdateCoordinator):
             # Sauvegarder les données réussies
             result = PowerBoxData(meters_parsed={}, configs=configs)
             self._last_successful_data = result
+            self._last_success = time.monotonic()
             
             return result
             
         except UpdateFailed as err:
             # La configuration change rarement, on peut garder les anciennes valeurs
-            if self._last_successful_data:
+            if _is_fresh(self._last_success, STALE_CONFIG_MAX_AGE):
                 _LOGGER.warning(
                     "[Config] Erreur de mise à jour, conservation de la dernière configuration: %s",
                     err
                 )
                 return self._last_successful_data
             else:
-                _LOGGER.error("[Config] Failed to update configuration (no previous data): %s", err)
+                _LOGGER.error("[Config] Failed to update configuration (no recent data): %s", err)
                 raise
                 
         except Exception as err:
-            if self._last_successful_data:
+            if _is_fresh(self._last_success, STALE_CONFIG_MAX_AGE):
                 _LOGGER.warning("[Config] Unexpected error, keeping previous config: %s", err)
                 return self._last_successful_data
             _LOGGER.error("[Config] Failed to update configuration: %s", err)
@@ -483,7 +516,7 @@ class PowerBoxConfigCoordinator(DataUpdateCoordinator):
 
 
 class PowerBoxStatusCoordinator(DataUpdateCoordinator):
-    """Coordinateur pour l'état de la borne et du branchement (30s)."""
+    """Coordinateur pour l'état de la borne, du branchement et la santé système (60s)."""
 
     data: PowerBoxData
 
@@ -491,13 +524,14 @@ class PowerBoxStatusCoordinator(DataUpdateCoordinator):
         """Initialisation du coordinateur de statut."""
         self.api_client = api_client
         self._last_successful_data = None
+        self._last_success: float | None = None
 
         super().__init__(
             hass,
             _LOGGER,
             name="Mobilize PowerBox Status",
             update_method=self.async_update_data,
-            update_interval=SCAN_INTERVAL_REALTIME,
+            update_interval=SCAN_INTERVAL_STATUS,
         )
 
     async def async_update_data(self) -> PowerBoxData:
@@ -510,28 +544,39 @@ class PowerBoxStatusCoordinator(DataUpdateCoordinator):
             custom_info = await self.hass.async_add_executor_job(
                 self.api_client.fetch_data, "status/custominfo"
             )
+            # Santé système (mémoire, CPU) : facultative, un compte sans accès
+            # ne doit pas rendre l'état de la borne indisponible
+            try:
+                sys_state = await self.hass.async_add_executor_job(
+                    self.api_client.fetch_data, "status/sys_state"
+                )
+            except UpdateFailed as err:
+                _LOGGER.debug("[Status] sys_state indisponible: %s", err)
+                sys_state = None
 
             result = PowerBoxData(
                 meters_parsed={},
                 status={
                     "chargingmodule": charging_module or {},
                     "custominfo": custom_info or {},
+                    "sys_state": sys_state or {},
                 },
             )
             self._last_successful_data = result
+            self._last_success = time.monotonic()
             return result
 
         except UpdateFailed as err:
-            if self._last_successful_data:
+            if _is_fresh(self._last_success, STALE_DATA_MAX_AGE):
                 _LOGGER.warning(
                     "[Status] Erreur de mise à jour, conservation du dernier état: %s", err
                 )
                 return self._last_successful_data
-            _LOGGER.error("[Status] Failed to update status (no previous data): %s", err)
+            _LOGGER.error("[Status] Failed to update status (no recent data): %s", err)
             raise
 
         except Exception as err:
-            if self._last_successful_data:
+            if _is_fresh(self._last_success, STALE_DATA_MAX_AGE):
                 _LOGGER.warning("[Status] Unexpected error, keeping previous status: %s", err)
                 return self._last_successful_data
             _LOGGER.error("[Status] Failed to update status: %s", err)
@@ -558,3 +603,30 @@ class PowerBoxStatusCoordinator(DataUpdateCoordinator):
             return None
         module = self.data.status.get("chargingmodule") or {}
         return (module.get(section) or {}).get(key)
+
+    def _sys_state(self) -> dict:
+        if not self.data or not self.data.status:
+            return {}
+        return self.data.status.get("sys_state") or {}
+
+    def _memory_kib(self, key: str) -> int | None:
+        """Valeur mémoire de /status/sys_state ("330616K") en Kio."""
+        value = (self._sys_state().get("memory") or {}).get(key)
+        try:
+            return int(str(value).rstrip("Kk"))
+        except (TypeError, ValueError):
+            return None
+
+    def get_memory_available_mib(self) -> float | None:
+        """Mémoire disponible (libre + cache) en Mio."""
+        free, cached = self._memory_kib("free"), self._memory_kib("cached")
+        if free is None:
+            return None
+        return round((free + (cached or 0)) / 1024, 1)
+
+    def get_cpu_percent(self) -> float | None:
+        """Charge CPU (100 - idle), en %."""
+        try:
+            return 100 - float((self._sys_state().get("cpu") or {})["idle"])
+        except (KeyError, TypeError, ValueError):
+            return None

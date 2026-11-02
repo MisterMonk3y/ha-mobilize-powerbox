@@ -7,6 +7,21 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.0] - 2026-11-02
+
+### 🔧 Corrigé
+- Quand l'API locale de la borne ne répond plus, les capteurs affichaient indéfiniment les dernières valeurs connues (jusqu'à 12 jours observés), ce qui faussait les automatisations et masquait la panne. Ils passent maintenant **indisponibles** après 5 minutes sans réponse (30 minutes pour la configuration)
+- Une erreur de connexion ne force plus une nouvelle authentification (qui déconnectait l'interface web) : le jeton est conservé et renouvelé seulement sur un 401
+
+### ⚡ Amélioré
+- **Une seule connexion HTTPS** partagée par tous les endpoints au lieu d'une nouvelle connexion TLS par requête (`Connection: close`), requêtes sérialisées entre coordinateurs. La borne ferme les connexions inactives après ~30 s : une nouvelle tentative automatique couvre ce cas
+- État de la borne interrogé toutes les 60 s (au lieu de 30 s)
+
+### ✨ Nouvelles Entités (diagnostic)
+- **PowerBox Mémoire Disponible** (Mio) et **PowerBox Charge CPU** (%), depuis `/status/sys_state`, pour suivre l'état de la borne avant un blocage
+
+---
+
 ## [1.6.0] - 2026-11-02
 
 ### ✨ Nouvelle Entité

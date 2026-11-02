@@ -17,6 +17,7 @@ from homeassistant.const import (
     UnitOfPower,
     UnitOfEnergy,
     UnitOfReactivePower,
+    UnitOfInformation,
     PERCENTAGE,
     EntityCategory,
 )
@@ -892,6 +893,25 @@ STATUS_SENSORS: tuple[PowerBoxStatusSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda c: _to_int(c.get_socket_value("PWM")),
+    ),
+    PowerBoxStatusSensorDescription(
+        key="memory_available",
+        name="PowerBox Mémoire Disponible",
+        icon="mdi:memory",
+        native_unit_of_measurement=UnitOfInformation.MEBIBYTES,
+        device_class=SensorDeviceClass.DATA_SIZE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.get_memory_available_mib(),
+    ),
+    PowerBoxStatusSensorDescription(
+        key="cpu_usage",
+        name="PowerBox Charge CPU",
+        icon="mdi:cpu-32-bit",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.get_cpu_percent(),
     ),
 )
 
